@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Doctor Dashboard{% endblock %}
+{% block content %}
+<h1 class="mb-4">👨‍⚕️ Doctor Dashboard</h1>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Appointments This Week</h3>
+            <a href="{{ url_for('set_doctor_availability') }}" class="btn btn-success">Set Availability (Next 7 Days)</a>
+        </div>
+
+        <table class="table table-hover table-striped">
+            <thead>
+                <tr>
+                    <th>Date & Time</th>
+                    <th>Patient</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for appt in appointments %}
+                <tr>
+                    <td>{{ appt.date }} at {{ appt.time }}</td>
+                    <td>{{ appt.patient.user.name }}</td>
+                    <td>
+                        {% if appt.status == 'Booked' %}
+                            <span class="badge bg-primary">{{ appt.status }}</span>
+                        {% elif appt.status == 'Completed' %}
+                            <span class="badge bg-success">{{ appt.status }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ appt.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if appt.status == 'Booked' %}
+                            <a href="#" class="btn btn-sm btn-outline-info">Start Consultation / Complete Visit</a> 
+                        {% elif appt.status == 'Completed' %}
+                            <a href="#" class="btn btn-sm btn-outline-success">View Treatment Notes</a>
+                        {% endif %}
+                        <a href="{{ url_for('doctor_view_patient_history', patient_id=appt.patient_id) }}" class="btn btn-sm btn-outline-secondary">View Patient History</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">No upcoming appointments found this week.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Patient Dashboard{% endblock %}
+{% block content %}
+<h1 class="mb-4">🧍 Patient Dashboard</h1>
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-info text-white">
+                <h4>Book an Appointment</h4>
+            </div>
+            <div class="card-body">
+                <p>Search doctors by specialization to check their 7-day availability.</p>
+                <form action="#" method="GET">
+                    <div class="mb-3">
+                        <label for="specialization_select" class="form-label">Select Specialization</label>
+                        <select class="form-select" id="specialization_select" name="specialization_id" required>
+                            <option value="">-- Choose Specialization --</option>
+                            {% for spec in specializations %}
+                                <option value="{{ spec.id }}">{{ spec.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-info w-100">Find Doctors</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4>📅 Upcoming Appointments</h4>
+            </div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for appt in appointments %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ appt.date }} at {{ appt.time }}</strong> with Dr. {{ appt.doctor.user.name }} ({{ appt.doctor.specialization.name }})
+                        </div>
+                        <div>
+                            <span class="badge bg-primary me-2">{{ appt.status }}</span>
+                            <a href="#" class="btn btn-sm btn-outline-secondary">Reschedule</a>
+                            <a href="#" class="btn btn-sm btn-outline-danger">Cancel</a>
+                        </div>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item text-muted text-center">No upcoming appointments found.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3 class="mt-4">📋 Past Appointment History</h3>
+        <p>You can view your full treatment records, including diagnosis and prescriptions, here.</p>
+        <a href="{{ url_for('patient_history') }}" class="btn btn-outline-secondary">View All Past Visits</a>
+    </div>
+</div>
+{% endblock %}

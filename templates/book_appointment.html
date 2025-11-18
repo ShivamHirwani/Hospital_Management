@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Book Appointment{% endblock %}
+{% block content %}
+<h1 class="mb-4">Book Appointment</h1>
+
+<a href="{{ url_for('patient_dashboard') }}" class="btn btn-outline-secondary mb-3">← Back to Dashboard</a>
+
+<p class="lead">Select a date and time from the doctor's available slots below.</p>
+
+{% if doctors %}
+    {% for doctor in doctors %}
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h4>Dr. {{ doctor.user.name }} <span class="badge bg-secondary">{{ doctor.specialization.name }}</span></h4>
+        </div>
+        <div class="card-body">
+            <p>**Contact:** {{ doctor.user.contact_info or 'N/A' }}</p>
+            
+            <h5>Available Slots (Next 7 Days)</h5>
+            <div class="row">
+                {% for date in date_list %}
+                {% set availability = availability_map.get(doctor.user_id, {}).get(date, 'Unavailable') %}
+                <div class="col-md-3 mb-3">
+                    <div class="p-2 border rounded {% if availability == 'Unavailable' %} bg-light text-muted {% else %} bg-info text-white {% endif %}">
+                        <strong>{{ datetime.strptime(date, '%Y-%m-%d').strftime('%a, %b %d') }}</strong>
+                        <p class="m-0 small">{{ availability }}</p>
+
+                        {% if availability != 'Unavailable' %}
+                            <form method="POST" action="{{ url_for('book_appointment') }}">
+                                <input type="hidden" name="doctor_id" value="{{ doctor.user_id }}">
+                                <input type="hidden" name="date" value="{{ date }}">
+                                <input type="hidden" name="time" value="{{ availability.split(' - ')[0] }}"> 
+                                <input type="hidden" name="specialization_id" value="{{ current_spec_id }}">
+                                <button type="submit" class="btn btn-sm btn-light mt-1 w-100">Book Now</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="alert alert-warning">No doctors found for the selected specialization or time frame.</div>
+{% endif %}
+
+{% endblock %}

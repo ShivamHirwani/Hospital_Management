@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Edit Patient: {{ user.name }}{% endblock %}
+{% block content %}
+<h1 class="mb-4">Edit Patient: {{ user.name }}</h1>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white text-center">
+                <h4>Update Patient Information</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('edit_patient', user_id=user.id) }}">
+                    
+                    <h5 class="mt-3">Account Details (Editable by Admin)</h5>
+                    <hr>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ user.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contact_info" class="form-label">Contact Information (Phone/Email)</label>
+                        <input type="text" class="form-control" id="contact_info" name="contact_info" value="{{ user.contact_info or '' }}">
+                    </div>
+
+                    <h5 class="mt-4">Personal Details</h5>
+                    <hr>
+                    <div class="mb-3">
+                        <label for="date_of_birth" class="form-label">Date of Birth</label>
+                        <input type="date" class="form-control" id="date_of_birth" name="date_of_birth" value="{{ patient.date_of_birth }}" required>
+                    </div>
+                    
+                    <div class="alert alert-warning small">
+                        **Note:** Changing the patient's username or password must be done via direct database interaction or a separate, dedicated administrative route for security.
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success w-100">Update Patient Profile</button>
+                    <a href="{{ url_for('manage_patients') }}" class="btn btn-outline-secondary w-100 mt-2">Cancel / Back to Management</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

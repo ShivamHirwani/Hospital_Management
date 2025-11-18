@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Add New Doctor{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white text-center">
+                <h3>🩺 Add New Doctor</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Doctor's Full Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="username" class="form-label">Login Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="password" class="form-label">Temporary Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contact_info" class="form-label">Contact Information (Email/Phone)</label>
+                        <input type="text" class="form-control" id="contact_info" name="contact_info">
+                    </div>
+                    <div class="mb-3">
+                        <label for="specialization_id" class="form-label">Specialization/Department</label>
+                        <select class="form-select" id="specialization_id" name="specialization_id" required>
+                            <option value="">-- Select Specialization --</option>
+                            {% for spec in specializations %}
+                                <option value="{{ spec.id }}">{{ spec.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success w-100">Add Doctor</button>
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary w-100 mt-2">Back to Dashboard</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

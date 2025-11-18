@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Set Your Availability{% endblock %}
+{% block content %}
+<h1 class="mb-4">⏰ Set Your Availability</h1>
+
+<a href="{{ url_for('doctor_dashboard') }}" class="btn btn-outline-secondary mb-3">← Back to Dashboard</a>
+
+<p class="lead">Define your available working hours for the next seven days (e.g., 09:00 to 17:00).</p>
+
+<div class="row">
+    {% for date_str in date_list %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                **{{ datetime.strptime(date_str, '%Y-%m-%d').strftime('%A, %B %d') }}**
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('set_doctor_availability') }}">
+                    <input type="hidden" name="date" value="{{ date_str }}">
+                    
+                    <div class="mb-3">
+                        <label for="start_time_{{ date_str }}" class="form-label small">Start Time</label>
+                        <input type="time" class="form-control" id="start_time_{{ date_str }}" name="start_time" value="09:00" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="end_time_{{ date_str }}" class="form-label small">End Time</label>
+                        <input type="time" class="form-control" id="end_time_{{ date_str }}" name="end_time" value="17:00" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success w-100 btn-sm">Set/Update Slot</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

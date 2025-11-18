@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}My Appointment History{% endblock %}
+{% block content %}
+<h1 class="mb-4">📋 My Appointment History</h1>
+
+<a href="{{ url_for('patient_dashboard') }}" class="btn btn-outline-secondary mb-3">← Back to Dashboard</a>
+
+{% for appt in history %}
+<div class="card mb-3 shadow-sm">
+    <div class="card-header bg-success text-white">
+        <h5>Consultation Date: {{ appt.date }} at {{ appt.time }}</h5>
+        <p class="m-0">Doctor: Dr. {{ appt.doctor.user.name }} ({{ appt.doctor.specialization.name }})</p>
+    </div>
+    <div class="card-body">
+        {% if appt.treatment_record %}
+            <h6>Diagnosis:</h6>
+            <p>{{ appt.treatment_record.diagnosis | default("N/A", true) }}</p>
+
+            <h6>Prescription:</h6>
+            <p class="border p-2 bg-light">{{ appt.treatment_record.prescription | default("No prescription recorded.", true) }}</p>
+
+            <h6>Doctor's Notes:</h6>
+            <p class="text-muted small">{{ appt.treatment_record.notes | default("No additional notes.", true) }}</p>
+        {% else %}
+            <p class="text-warning">Treatment record not found for this completed appointment.</p>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">You have no completed appointment history.</div>
+{% endfor %}
+{% endblock %}
