@@ -343,6 +343,7 @@ def find_doctors():
         doctors = Doctor.query.filter_by(specialization_id=specialization_id).all()
     else:
         doctors = Doctor.query.all()
+    print(f"--- DEBUG: Found {len(doctors)} doctors. ---") # Add this line
     
     # Pre-fetch all availability data for the found doctors
     doctor_ids = [d.user_id for d in doctors]
@@ -358,13 +359,16 @@ def find_doctors():
             availability_map[record.doctor_id] = {}
         # Store available slots for the date
         availability_map[record.doctor_id][record.date] = f"{record.start_time} - {record.end_time}"
+
+    print(f"--- DEBUG: Found {len(availability_records)} availability records. ---")
         
     # NOTE: We need a dedicated template to show availability and booking forms
     return render_template('book_appointment.html', 
                            doctors=doctors, 
                            date_list=date_list, 
                            availability_map=availability_map,
-                           current_spec_id=specialization_id)
+                           current_spec_id=specialization_id,
+                           datetime=datetime)
 
 @app.route('/patient/book', methods=['POST'])
 @role_required('Patient')

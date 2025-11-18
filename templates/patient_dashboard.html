@@ -10,21 +10,21 @@
                 <h4>Book an Appointment</h4>
             </div>
             <div class="card-body">
-                <p>Search doctors by specialization to check their 7-day availability.</p>
-                <form action="#" method="GET">
-                    <div class="mb-3">
-                        <label for="specialization_select" class="form-label">Select Specialization</label>
-                        <select class="form-select" id="specialization_select" name="specialization_id" required>
-                            <option value="">-- Choose Specialization --</option>
-                            {% for spec in specializations %}
-                                <option value="{{ spec.id }}">{{ spec.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-info w-100">Find Doctors</button>
-                </form>
-            </div>
+    <p>Search doctors by specialization to check their 7-day availability.</p>
+    <form action="{{ url_for('find_doctors') }}" method="GET"> 
+        <div class="mb-3">
+            <label for="specialization_select" class="form-label">Select Specialization</label>
+            <select class="form-select" id="specialization_select" name="specialization_id" required>
+                <option value="">-- Choose Specialization --</option>
+                {% for spec in specializations %}
+                    <option value="{{ spec.id }}">{{ spec.name }}</option>
+                {% endfor %}
+            </select>
         </div>
+        <button type="submit" class="btn btn-info w-100">Find Doctors</button>
+    		</form>
+	</div>
+</div>
     </div>
 
     <div class="col-md-7">
