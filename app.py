@@ -1,10 +1,11 @@
 import os
 import functools
 from datetime import datetime, timedelta
+from sqlalchemy import or_, and_
 from flask import Flask, render_template, redirect, url_for, request, flash, abort
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Doctor, Specialization, Appointment, Treatment, Patient, DoctorAvailability # Import your models
+from models import db, User, Doctor, Specialization, Appointment, Treatment, Patient, DoctorAvailability, MedicalRecord # Import your models
 
 # --- APP SETUP ---
 app = Flask(__name__)
@@ -37,6 +38,21 @@ def role_required(role):
         return decorated_view
     return wrapper
 
+def generate_slots(start_time_str, end_time_str, interval_minutes=30):
+    """Generates a list of time strings (e.g., ['09:00', '09:30'])"""
+    FMT = '%H:%M'
+    # Use today's date arbitrarily for time arithmetic
+    start_time = datetime.strptime(start_time_str, FMT)
+    end_time = datetime.strptime(end_time_str, FMT)
+    
+    slots = []
+    current_time = start_time
+    while current_time < end_time:
+        slots.append(current_time.strftime(FMT))
+        current_time += timedelta(minutes=interval_minutes)
+    return slots
+
+# In app.py, update the find_doctors route to use this:
 def init_db_command():
     """Initializes the database and inserts the pre-existing admin."""
     with app.app_context():
@@ -135,6 +151,26 @@ def admin_dashboard():
     }
     return render_template('admin_dashboard.html', **context)
 
+# --- ADMIN APPOINTMENT MANAGEMENT (Cancel/Update) ---
+
+@app.route('/admin/cancel_appointment/<int:appt_id>', methods=['POST'])
+@role_required('Admin')
+def admin_cancel_appointment(appt_id):
+    appointment = Appointment.query.get_or_404(appt_id)
+    
+    if appointment.status == 'Booked':
+        appointment.status = 'Cancelled'
+        try:
+            db.session.commit()
+            flash(f'Appointment ID {appt_id} successfully cancelled.', 'success')
+        except:
+            db.session.rollback()
+            flash('Failed to cancel appointment.', 'danger')
+    else:
+        flash(f'Appointment ID {appt_id} cannot be cancelled as status is {appointment.status}.', 'warning')
+        
+    return redirect(url_for('admin_dashboard'))
+
 @app.route('/doctor')
 @role_required('Doctor')
 def doctor_dashboard():
@@ -159,17 +195,32 @@ def patient_dashboard():
     # Patients’ Dashboard must display all available specialization/departments
     specializations = Specialization.query.all()
     
-    # It must display upcoming appointments
+    # Define today's date and current time for filtering
+    today_date_str = datetime.now().strftime('%Y-%m-%d')
+    current_time_str = datetime.now().strftime('%H:%M')
+    
+    # 1. Fetch appointments that are in the future AND have a bookable status
     upcoming_appointments = Appointment.query.filter(
         Appointment.patient_id == current_user.id,
-        Appointment.status == 'Booked',
-        Appointment.date >= datetime.now().strftime('%Y-%m-%d')
-    ).order_by(Appointment.date, Appointment.time).all()
+        # Allow multiple statuses
+        Appointment.status.in_(['Booked', 'Rescheduled', 'Pending']),
+        
+        # CRITICAL FIX: Filter out past appointments from today
+        or_(
+            # Option A: Appointments on future days
+            Appointment.date > today_date_str,
+            # Option B: Appointments on today's date, but time hasn't passed yet
+            and_(
+                Appointment.date == today_date_str,
+                Appointment.time >= current_time_str
+            )
+        )
+    ).order_by(Appointment.date.asc(), Appointment.time.asc()).all()
     
-    # NOTE: You'll need to create patient_dashboard.html
-    return render_template('patient_dashboard.html', specializations=specializations, appointments=upcoming_appointments)
-
-
+    # 2. Render Template with correct variable name
+    return render_template('patient_dashboard.html', 
+                           specializations=specializations, 
+                           upcoming_appointments=upcoming_appointments)
 # --- Example CRUD for Admin (Add Doctor) ---
 
 @app.route('/admin/add_doctor', methods=['GET', 'POST'])
@@ -327,46 +378,116 @@ def register():
     # NOTE: You'll need to create register.html
     return render_template('register.html')
 
-# --- PATIENT APPOINTMENT ROUTES ---
+# --- DOCTOR VIEW TREATMENT NOTES ROUTE ---
+
+@app.route('/doctor/view_notes/<int:appt_id>', methods=['GET'])
+@role_required('Doctor')
+def doctor_view_treatment(appt_id):
+    appointment = Appointment.query.get_or_404(appt_id)
+    
+    # Security Check: Ensure the appointment belongs to the logged-in doctor
+    if appointment.doctor_id != current_user.id:
+        flash('Access denied. This is not your patient record.', 'danger')
+        return redirect(url_for('doctor_dashboard'))
+
+    # NOTE: This assumes you have a MedicalRecord model linked by patient_id or appointment_id
+    # Since we are currently only updating the Appointment status in start_consultation, 
+    # we need a placeholder assumption. 
+    # ***For now, we'll assume the diagnosis/notes are stored in a new MedicalRecord table.***
+    
+    # Placeholder: Assuming you have a MedicalRecord class with a foreign key to patient_id.
+    # In a real app, you'd query the record:
+    # medical_record = MedicalRecord.query.filter_by(appointment_id=appt_id).first()
+    
+    # ***TEMPORARY MOCK DATA (Replace this with a database query later)***
+    medical_record = MedicalRecord.query.filter_by(appointment_id=appt_id).first()
+    
+    if not medical_record:
+        flash('No consultation record found for this appointment.', 'danger')
+        return redirect(url_for('doctor_dashboard'))
+    
+    return render_template('view_treatment_notes.html', 
+                           appointment=appointment, 
+                           medical_record=medical_record)# --- PATIENT APPOINTMENT ROUTES ---
 
 @app.route('/patient/find_doctors', methods=['GET'])
 @role_required('Patient')
 def find_doctors():
     specialization_id = request.args.get('specialization_id')
     
-    # Get availability for the next 7 days
+    # Get dates for the next 7 days
     start_date = datetime.now().strftime('%Y-%m-%d')
     end_date = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
     date_list = [(datetime.now() + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]
 
+    # 1. Fetch Doctors
     if specialization_id:
         doctors = Doctor.query.filter_by(specialization_id=specialization_id).all()
     else:
         doctors = Doctor.query.all()
-    print(f"--- DEBUG: Found {len(doctors)} doctors. ---") # Add this line
-    
-    # Pre-fetch all availability data for the found doctors
+        
     doctor_ids = [d.user_id for d in doctors]
+    
+    # If no doctors are found, return early with an empty result to avoid DB errors
+    if not doctor_ids:
+        return render_template('book_appointment.html', 
+                               doctors=[], 
+                               date_list=date_list, 
+                               bookable_slots_map={},
+                               current_spec_id=specialization_id,
+                               datetime=datetime)
+
+    # 2. Fetch all current set availability records for these doctors
     availability_records = DoctorAvailability.query.filter(
         DoctorAvailability.doctor_id.in_(doctor_ids),
         DoctorAvailability.date.between(start_date, end_date)
     ).all()
+    
+    # 3. Fetch all currently Booked/Completed appointments
+    booked_appointments = Appointment.query.filter(
+        Appointment.doctor_id.in_(doctor_ids),
+        Appointment.date.between(start_date, end_date),
+        # Check both Booked and Completed to prevent booking slots that have passed/been used
+        Appointment.status.in_(['Booked', 'Completed']) 
+    ).all()
+    
+    # Map currently booked slots for quick lookup: (doctor_id, date, time)
+    booked_slots_set = set()
+    for appt in booked_appointments:
+        booked_slots_set.add((appt.doctor_id, appt.date, appt.time))
 
-    # Map availability to doctor and date for easy lookup in the template
-    availability_map = {}
+    # 4. Generate the final list of bookable slots
+    availability_map = {} # Map raw set availability
     for record in availability_records:
         if record.doctor_id not in availability_map:
             availability_map[record.doctor_id] = {}
-        # Store available slots for the date
-        availability_map[record.doctor_id][record.date] = f"{record.start_time} - {record.end_time}"
-
-    print(f"--- DEBUG: Found {len(availability_records)} availability records. ---")
+        availability_map[record.doctor_id][record.date] = record
         
-    # NOTE: We need a dedicated template to show availability and booking forms
+    bookable_slots_map = {}
+    for doctor in doctors:
+        bookable_slots_map[doctor.user_id] = {}
+        
+        for date_str in date_list:
+            record = availability_map.get(doctor.user_id, {}).get(date_str)
+            
+            if record:
+                # Generate all potential 30-minute slots using the helper function
+                all_day_slots = generate_slots(record.start_time, record.end_time)
+                
+                # Filter out slots that are already booked
+                available_slots = [
+                    slot for slot in all_day_slots
+                    if (doctor.user_id, date_str, slot) not in booked_slots_set
+                ]
+                bookable_slots_map[doctor.user_id][date_str] = available_slots
+            else:
+                bookable_slots_map[doctor.user_id][date_str] = [] # Doctor is not available
+
+    # 5. Render Template with new map
     return render_template('book_appointment.html', 
                            doctors=doctors, 
                            date_list=date_list, 
-                           availability_map=availability_map,
+                           bookable_slots_map=bookable_slots_map, # <<< CRITICAL VARIABLE
                            current_spec_id=specialization_id,
                            datetime=datetime)
 
@@ -416,24 +537,24 @@ def book_appointment():
 
 @app.route('/patient/cancel_appointment/<int:appt_id>', methods=['POST'])
 @role_required('Patient')
-def cancel_appointment(appt_id):
+def patient_cancel_appointment(appt_id):
     appointment = Appointment.query.get_or_404(appt_id)
     
-    # Security Check: Ensure patient is canceling their own appointment
+    # Security Check: Ensure patient owns this appointment
     if appointment.patient_id != current_user.id:
-        flash('Unauthorized action.', 'danger')
+        flash('Access denied. This is not your appointment.', 'danger')
         return redirect(url_for('patient_dashboard'))
-    
-    if appointment.status == 'Booked':
+
+    if appointment.status in ['Booked', 'Rescheduled']:
         appointment.status = 'Cancelled'
         try:
             db.session.commit()
-            flash('Appointment successfully cancelled.', 'success')
+            flash(f'Appointment ID {appt_id} successfully cancelled.', 'success')
         except:
             db.session.rollback()
             flash('Failed to cancel appointment.', 'danger')
     else:
-        flash('Only "Booked" appointments can be cancelled.', 'warning')
+        flash(f'Appointment ID {appt_id} cannot be cancelled as status is {appointment.status}.', 'warning')
         
     return redirect(url_for('patient_dashboard'))
 
@@ -477,6 +598,59 @@ def complete_appointment(appt_id):
     # GET request: Show consultation form
     # NOTE: You'll need to create consultation_form.html
     return render_template('consultation_form.html', appointment=appointment)
+
+# --- DOCTOR CONSULTATION ROUTES ---
+
+@app.route('/doctor/consultation/<int:appt_id>', methods=['GET', 'POST'])
+@role_required('Doctor')
+def start_consultation(appt_id):
+    appointment = Appointment.query.get_or_404(appt_id)
+    
+    # Security Check: Ensure the appointment belongs to the logged-in doctor
+    if appointment.doctor_id != current_user.id:
+        flash('Access denied. This appointment is not assigned to you.', 'danger')
+        return redirect(url_for('doctor_dashboard'))
+
+    # Check status: Only allow consultation for active or rescheduled appointments
+    if appointment.status not in ['Booked', 'Rescheduled', 'Pending']:
+        flash(f'Cannot start consultation. Appointment status is {appointment.status}.', 'warning')
+        return redirect(url_for('doctor_dashboard'))
+
+    # If GET, display the consultation form
+    if request.method == 'GET':
+        patient = appointment.patient
+        return render_template('start_consultation.html', 
+                               appointment=appointment, 
+                               patient=patient)
+
+    # If POST, process the consultation data
+    elif request.method == 'POST':
+        diagnosis = request.form.get('diagnosis')
+        notes = request.form.get('notes')
+        
+        # 1. Update Appointment Status
+        appointment.status = 'Completed' 
+        
+        # 2. CREATE NEW MEDICAL RECORD
+        new_record = MedicalRecord(
+            appointment_id=appointment.id,
+            patient_id=appointment.patient_id,
+            doctor_id=current_user.id,
+            diagnosis=diagnosis,
+            notes=notes,
+            consultation_date=appointment.date
+        )
+        
+        db.session.add(new_record)
+
+        try:
+            db.session.commit()
+            flash(f'Consultation for patient {appointment.patient.user.name} completed and status updated.', 'success')
+            return redirect(url_for('doctor_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Failed to save consultation details: {e}', 'danger')
+            return redirect(url_for('start_consultation', appt_id=appt_id))
 
 # --- PATIENT HISTORY ROUTE ---
 
@@ -597,6 +771,8 @@ def edit_patient(user_id):
             
     # NOTE: We need a dedicated template: edit_patient.html
     return render_template('edit_patient.html', user=user, patient=patient)
+
+
 # --- INITIAL SETUP RUNNER ---
 
 if __name__ == '__main__':

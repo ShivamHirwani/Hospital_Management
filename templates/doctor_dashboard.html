@@ -34,12 +34,15 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if appt.status == 'Booked' %}
-                            <a href="#" class="btn btn-sm btn-outline-info">Start Consultation / Complete Visit</a> 
+                        {% if appt.status in ['Booked', 'Rescheduled', 'Pending'] %}
+                            <a href="{{ url_for('start_consultation', appt_id=appt.id) }}" class="btn btn-sm btn-info">
+                                Start Consultation / Complete Visit
+                            </a>
                         {% elif appt.status == 'Completed' %}
-                            <a href="#" class="btn btn-sm btn-outline-success">View Treatment Notes</a>
+                            <a href="{{ url_for('doctor_view_treatment', appt_id=appt.id) }}" class="btn btn-sm btn-outline-success">View Treatment Notes</a>
                         {% endif %}
-                        <a href="{{ url_for('doctor_view_patient_history', patient_id=appt.patient_id) }}" class="btn btn-sm btn-outline-secondary">View Patient History</a>
+                        
+                        <a href="{{ url_for('doctor_view_patient_history', patient_id=appt.patient.user_id) }}" class="btn btn-sm btn-outline-secondary">View Patient History</a>
                     </td>
                 </tr>
                 {% else %}

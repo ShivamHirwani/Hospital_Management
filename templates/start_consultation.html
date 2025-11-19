@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Consultation: Appt #{{ appointment.id }}{% endblock %}
+{% block content %}
+<h1 class="mb-4">🩺 Start Consultation: Appt #{{ appointment.id }}</h1>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4>Patient Details</h4>
+            </div>
+            <div class="card-body">
+                <p><strong>Name:</strong> {{ patient.user.name }}</p>
+                <p><strong>DOB:</strong> {{ patient.date_of_birth }}</p>
+                <p><strong>Appointment Time:</strong> {{ appointment.date }} at {{ appointment.time }}</p>
+                <hr>
+                <a href="{{ url_for('doctor_view_patient_history', patient_id=patient.user_id) }}" class="btn btn-outline-info btn-sm">View Patient History</a>
+            </div>
+        </div>
+        
+        <div class="card shadow-lg">
+            <div class="card-header bg-success text-white">
+                <h4>Consultation Notes & Diagnosis</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('start_consultation', appt_id=appointment.id) }}">
+                    
+                    <div class="mb-3">
+                        <label for="diagnosis" class="form-label">Final Diagnosis</label>
+                        <textarea class="form-control" id="diagnosis" name="diagnosis" rows="3" required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Treatment Notes / Prescription (Optional)</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="5"></textarea>
+                    </div>
+                    
+                    <div class="alert alert-warning small">
+                        Submitting this form will change the appointment status to **Completed**.
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">Complete Consultation & Save Record</button>
+                    <a href="{{ url_for('doctor_dashboard') }}" class="btn btn-outline-secondary w-100 mt-2">Cancel and Return to Dashboard</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

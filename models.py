@@ -76,3 +76,24 @@ class DoctorAvailability(db.Model):
     end_time = db.Column(db.String(5), nullable=False)
     
     __table_args__ = (db.UniqueConstraint('doctor_id', 'date', 'start_time', name='_doctor_date_time_uc'),)
+
+class MedicalRecord(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Link to the specific appointment and the doctor/patient
+    appointment_id = db.Column(db.Integer, db.ForeignKey('appointment.id'), unique=True, nullable=False)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patient.user_id'), nullable=False)
+    doctor_id = db.Column(db.Integer, db.ForeignKey('doctor.user_id'), nullable=False)
+    
+    # Consultation details
+    diagnosis = db.Column(db.Text, nullable=False)
+    notes = db.Column(db.Text, nullable=True) # Treatment notes, prescriptions, etc.
+    consultation_date = db.Column(db.String(10), nullable=False) # Store the date string
+    
+    # Relationships
+    appointment = db.relationship('Appointment', backref=db.backref('record', uselist=False))
+    patient = db.relationship('Patient', backref='medical_records')
+    doctor = db.relationship('Doctor', backref='consultations_given')
+
+    def __repr__(self):
+        return f'<MedicalRecord {self.id} | Appt {self.appointment_id}>'

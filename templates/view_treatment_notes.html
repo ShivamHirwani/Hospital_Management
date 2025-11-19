@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Treatment Notes{% endblock %}
+{% block content %}
+<h1 class="mb-4">📜 Treatment Notes: Appt #{{ appointment.id }}</h1>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+        <h4>Patient: {{ appointment.patient.user.name }}</h4>
+        <p class="m-0">Consultation Date: {{ medical_record.date }}</p>
+    </div>
+    <div class="card-body">
+        
+        <h5 class="text-primary">Final Diagnosis</h5>
+        <div class="alert alert-primary">
+            <p>{{ medical_record.diagnosis }}</p>
+        </div>
+        
+        <h5 class="text-secondary">Treatment Notes / Prescriptions</h5>
+        <div class="card bg-light p-3">
+            <p style="white-space: pre-wrap;">{{ medical_record.notes }}</p>
+        </div>
+        
+        <hr>
+        <a href="{{ url_for('doctor_dashboard') }}" class="btn btn-outline-secondary">← Back to Dashboard</a>
+        <a href="{{ url_for('doctor_view_patient_history', patient_id=appointment.patient.user_id) }}" class="btn btn-outline-info">View Full Patient History</a>
+    </div>
+</div>
+
+{% endblock %}

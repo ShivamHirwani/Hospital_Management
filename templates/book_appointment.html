@@ -5,7 +5,7 @@
 
 <a href="{{ url_for('patient_dashboard') }}" class="btn btn-outline-secondary mb-3">← Back to Dashboard</a>
 
-<p class="lead">Select a date and time from the doctor's available slots below.</p>
+<p class="lead">Select a specific 30-minute time slot from the available options below.</p>
 
 {% if doctors %}
     {% for doctor in doctors %}
@@ -18,21 +18,31 @@
             
             <h5>Available Slots (Next 7 Days)</h5>
             <div class="row">
-                {% for date in date_list %}
-                {% set availability = availability_map.get(doctor.user_id, {}).get(date, 'Unavailable') %}
+                {% for date_str in date_list %}
+                
+                {# Retrieve the list of available 30-minute slots for this doctor/date #}
+                {% set slots = bookable_slots_map.get(doctor.user_id, {}).get(date_str, []) %}
+                
                 <div class="col-md-3 mb-3">
-                    <div class="p-2 border rounded {% if availability == 'Unavailable' %} bg-light text-muted {% else %} bg-info text-white {% endif %}">
-                        <strong>{{ datetime.strptime(date, '%Y-%m-%d').strftime('%a, %b %d') }}</strong>
-                        <p class="m-0 small">{{ availability }}</p>
-
-                        {% if availability != 'Unavailable' %}
-                            <form method="POST" action="{{ url_for('book_appointment') }}">
-                                <input type="hidden" name="doctor_id" value="{{ doctor.user_id }}">
-                                <input type="hidden" name="date" value="{{ date }}">
-                                <input type="hidden" name="time" value="{{ availability.split(' - ')[0] }}"> 
-                                <input type="hidden" name="specialization_id" value="{{ current_spec_id }}">
-                                <button type="submit" class="btn btn-sm btn-light mt-1 w-100">Book Now</button>
-                            </form>
+                    <div class="p-2 border rounded 
+                        {% if slots %} bg-info text-white {% else %} bg-light text-muted {% endif %}">
+                        
+                        <strong>{{ datetime.strptime(date_str, '%Y-%m-%d').strftime('%a, %b %d') }}</strong>
+                        
+                        {% if slots %}
+                            {% for slot_time in slots %}
+                                <form method="POST" action="{{ url_for('book_appointment') }}" class="d-inline-block mt-1 w-100">
+                                    <input type="hidden" name="doctor_id" value="{{ doctor.user_id }}">
+                                    <input type="hidden" name="date" value="{{ date_str }}">
+                                    
+                                    <input type="hidden" name="time" value="{{ slot_time }}"> 
+                                    
+                                    <input type="hidden" name="specialization_id" value="{{ current_spec_id }}">
+                                    <button type="submit" class="btn btn-sm btn-light w-100 mb-1">Book {{ slot_time }}</button>
+                                </form>
+                            {% endfor %}
+                        {% else %}
+                            <p class="m-0 small">Unavailable/Fully Booked</p>
                         {% endif %}
                     </div>
                 </div>

@@ -56,9 +56,17 @@
                     <td>Dr. {{ appt.doctor.user.name }}</td>
                     <td>{{ appt.patient.user.name }}</td>
                     <td><span class="badge bg-info">{{ appt.status }}</span></td>
+                   ...
                     <td>
-                        <a href="#" class="btn btn-sm btn-outline-danger">Cancel</a>
+                        <form method="POST" action="{{ url_for('admin_cancel_appointment', appt_id=appt.id) }}" style="display:inline;">
+                            <button type="submit" 
+                                    class="btn btn-sm btn-outline-danger" 
+                                    onclick="return confirm('Are you sure you want to cancel this appointment (ID: {{ appt.id }})?');">
+                                Cancel
+                            </button>
+                        </form>
                     </td>
+...
                 </tr>
                 {% else %}
                 <tr>
