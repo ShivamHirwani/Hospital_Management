@@ -151,6 +151,20 @@ def admin_dashboard():
     }
     return render_template('admin_dashboard.html', **context)
 
+@app.route('/admin/appointments')
+@role_required('Admin')   # only admin can view this page
+def admin_all_appointments():
+    # Fetch every appointment from the database
+    appointments = Appointment.query.order_by(
+        Appointment.date.desc(),
+        Appointment.time.desc()
+    ).all()
+
+    return render_template(
+        'admin_all_appointments.html',
+        appointments=appointments
+    )
+
 # --- ADMIN APPOINTMENT MANAGEMENT (Cancel/Update) ---
 
 @app.route('/admin/cancel_appointment/<int:appt_id>', methods=['POST'])
