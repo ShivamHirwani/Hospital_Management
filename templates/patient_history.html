@@ -12,15 +12,15 @@
         <p class="m-0">Doctor: Dr. {{ appt.doctor.user.name }} ({{ appt.doctor.specialization.name }})</p>
     </div>
     <div class="card-body">
-        {% if appt.treatment_record %}
+        {% if appt.record %}
             <h6>Diagnosis:</h6>
-            <p>{{ appt.treatment_record.diagnosis | default("N/A", true) }}</p>
+            <p>{{ appt.record.diagnosis | default("N/A", true) }}</p>
 
             <h6>Prescription:</h6>
-            <p class="border p-2 bg-light">{{ appt.treatment_record.prescription | default("No prescription recorded.", true) }}</p>
+            <p class="border p-2 bg-light">{{ appt.record.prescription | default("No prescription recorded.", true) }}</p>
 
             <h6>Doctor's Notes:</h6>
-            <p class="text-muted small">{{ appt.treatment_record.notes | default("No additional notes.", true) }}</p>
+            <p class="text-muted small">{{ appt.record.notes | default("No additional notes.", true) }}</p>
         {% else %}
             <p class="text-warning">Treatment record not found for this completed appointment.</p>
         {% endif %}

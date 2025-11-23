@@ -5,7 +5,6 @@ from sqlalchemy import or_, and_
 from flask import Flask, render_template, redirect, url_for, request, flash, abort
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from models import db, User, Doctor, Specialization, Appointment, Treatment, Patient, DoctorAvailability, MedicalRecord # Import your models
 
 # --- APP SETUP ---
 app = Flask(__name__)
@@ -14,10 +13,17 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hms.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.urandom(24) # Use a strong, secret key
 
+# Initialize db and LoginManager *before* importing models
+# (This is the critical fix for the circular dependency issue)
+from models import db # Import the db object ONLY at the top
 db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# --- MODEL IMPORTS (FIXED POSITION) ---
+# Import all other models only after the db object is fully initialized with the app
+from models import User, Doctor, Specialization, Appointment, Treatment, Patient, DoctorAvailability, MedicalRecord
 
 # --- HELPER FUNCTIONS ---
 
@@ -29,7 +35,7 @@ def role_required(role):
     """Decorator to restrict access based on user role."""
     def wrapper(func):
         @login_required
-        @functools.wraps(func) # <<< THIS LINE IS THE FIX
+        @functools.wraps(func)
         def decorated_view(*args, **kwargs):
             if current_user.role != role:
                 flash('Access denied. You do not have the required permissions.', 'danger')
@@ -52,7 +58,6 @@ def generate_slots(start_time_str, end_time_str, interval_minutes=30):
         current_time += timedelta(minutes=interval_minutes)
     return slots
 
-# In app.py, update the find_doctors route to use this:
 def init_db_command():
     """Initializes the database and inserts the pre-existing admin."""
     with app.app_context():
@@ -77,14 +82,9 @@ def init_db_command():
         if not Specialization.query.all():
             specializations = ['Cardiology', 'Pediatrics', 'Neurology', 'Oncology']
             for spec_name in specializations:
-                db.session.add(Specialization(name=spec_name, description='Department of {spec_name}'))
+                db.session.add(Specialization(name=spec_name, description=f'Department of {spec_name}'))
             db.session.commit()
             print("Initial specializations added.")
-
-# Call the init function once to set up the environment
-# It's best practice to run this once manually or via a command line utility.
-# For demo purposes, you can uncomment the line below for the first run:
-# init_db_command() 
 
 # --- AUTHENTICATION ROUTES ---
 
@@ -192,20 +192,21 @@ def doctor_dashboard():
 @app.route('/patient')
 @role_required('Patient')
 def patient_dashboard():
-    # Patients’ Dashboard must display all available specialization/departments
+    # 1. Fetch Specializations
     specializations = Specialization.query.all()
     
-    # Define today's date and current time for filtering
+    # 2. Define today's date and current time for precise filtering
     today_date_str = datetime.now().strftime('%Y-%m-%d')
     current_time_str = datetime.now().strftime('%H:%M')
     
-    # 1. Fetch appointments that are in the future AND have a bookable status
+    # 3. Fetch Upcoming Appointments
     upcoming_appointments = Appointment.query.filter(
         Appointment.patient_id == current_user.id,
-        # Allow multiple statuses
+        
+        # Include all active statuses
         Appointment.status.in_(['Booked', 'Rescheduled', 'Pending']),
         
-        # CRITICAL FIX: Filter out past appointments from today
+        # CRITICAL FIX: Ensure the appointment is in the future
         or_(
             # Option A: Appointments on future days
             Appointment.date > today_date_str,
@@ -217,10 +218,10 @@ def patient_dashboard():
         )
     ).order_by(Appointment.date.asc(), Appointment.time.asc()).all()
     
-    # 2. Render Template with correct variable name
+    # 4. Render Template
     return render_template('patient_dashboard.html', 
-                           specializations=specializations, 
-                           upcoming_appointments=upcoming_appointments)
+                            specializations=specializations, 
+                            upcoming_appointments=upcoming_appointments)
 # --- Example CRUD for Admin (Add Doctor) ---
 
 @app.route('/admin/add_doctor', methods=['GET', 'POST'])
@@ -390,16 +391,6 @@ def doctor_view_treatment(appt_id):
         flash('Access denied. This is not your patient record.', 'danger')
         return redirect(url_for('doctor_dashboard'))
 
-    # NOTE: This assumes you have a MedicalRecord model linked by patient_id or appointment_id
-    # Since we are currently only updating the Appointment status in start_consultation, 
-    # we need a placeholder assumption. 
-    # ***For now, we'll assume the diagnosis/notes are stored in a new MedicalRecord table.***
-    
-    # Placeholder: Assuming you have a MedicalRecord class with a foreign key to patient_id.
-    # In a real app, you'd query the record:
-    # medical_record = MedicalRecord.query.filter_by(appointment_id=appt_id).first()
-    
-    # ***TEMPORARY MOCK DATA (Replace this with a database query later)***
     medical_record = MedicalRecord.query.filter_by(appointment_id=appt_id).first()
     
     if not medical_record:
@@ -407,8 +398,9 @@ def doctor_view_treatment(appt_id):
         return redirect(url_for('doctor_dashboard'))
     
     return render_template('view_treatment_notes.html', 
-                           appointment=appointment, 
-                           medical_record=medical_record)# --- PATIENT APPOINTMENT ROUTES ---
+                            appointment=appointment, 
+                            medical_record=medical_record)
+# --- PATIENT APPOINTMENT ROUTES ---
 
 @app.route('/patient/find_doctors', methods=['GET'])
 @role_required('Patient')
@@ -431,11 +423,11 @@ def find_doctors():
     # If no doctors are found, return early with an empty result to avoid DB errors
     if not doctor_ids:
         return render_template('book_appointment.html', 
-                               doctors=[], 
-                               date_list=date_list, 
-                               bookable_slots_map={},
-                               current_spec_id=specialization_id,
-                               datetime=datetime)
+                                doctors=[], 
+                                date_list=date_list, 
+                                bookable_slots_map={},
+                                current_spec_id=specialization_id,
+                                datetime=datetime)
 
     # 2. Fetch all current set availability records for these doctors
     availability_records = DoctorAvailability.query.filter(
@@ -485,11 +477,11 @@ def find_doctors():
 
     # 5. Render Template with new map
     return render_template('book_appointment.html', 
-                           doctors=doctors, 
-                           date_list=date_list, 
-                           bookable_slots_map=bookable_slots_map, # <<< CRITICAL VARIABLE
-                           current_spec_id=specialization_id,
-                           datetime=datetime)
+                            doctors=doctors, 
+                            date_list=date_list, 
+                            bookable_slots_map=bookable_slots_map, # <<< CRITICAL VARIABLE
+                            current_spec_id=specialization_id,
+                            datetime=datetime)
 
 @app.route('/patient/book', methods=['POST'])
 @role_required('Patient')
@@ -558,6 +550,41 @@ def patient_cancel_appointment(appt_id):
         
     return redirect(url_for('patient_dashboard'))
 
+# --- PATIENT PROFILE EDIT ROUTE ---
+
+@app.route('/patient/edit_profile', methods=['GET', 'POST'])
+@login_required
+@role_required('Patient')
+def patient_edit_profile():
+    # Get the User object (already available as current_user)
+    user = current_user
+    # Get the corresponding Patient object
+    patient = Patient.query.filter_by(user_id=user.id).first()
+    
+    if not patient:
+        flash('Patient profile data not found.', 'danger')
+        return redirect(url_for('patient_dashboard'))
+
+    if request.method == 'POST':
+        # 1. Update User Details (Name, Contact Info)
+        user.name = request.form.get('name')
+        user.contact_info = request.form.get('contact_info')
+        
+        # 2. Update Patient Details (Date of Birth)
+        patient.date_of_birth = request.form.get('date_of_birth')
+
+        try:
+            db.session.commit()
+            flash('Your profile has been successfully updated.', 'success')
+            return redirect(url_for('patient_dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating profile: {e}', 'danger')
+            return redirect(url_for('patient_edit_profile'))
+
+    # If GET, display the form
+    return render_template('patient_edit_profile.html', user=user, patient=patient)
+
 # --- DOCTOR TREATMENT ENTRY ROUTES (CRUD for Treatment) ---
 
 @app.route('/doctor/complete_appointment/<int:appt_id>', methods=['GET', 'POST'])
@@ -620,8 +647,8 @@ def start_consultation(appt_id):
     if request.method == 'GET':
         patient = appointment.patient
         return render_template('start_consultation.html', 
-                               appointment=appointment, 
-                               patient=patient)
+                                appointment=appointment, 
+                                patient=patient)
 
     # If POST, process the consultation data
     elif request.method == 'POST':
@@ -729,8 +756,8 @@ def doctor_view_patient_history(patient_id):
 
     # NOTE: We need a dedicated template: doctor_patient_history.html
     return render_template('doctor_patient_history.html', 
-                           patient_name=patient_user.name, 
-                           history=history)
+                            patient_name=patient_user.name, 
+                            history=history)
 
 # --- ADMIN PATIENT MANAGEMENT ROUTES (CRUD) ---
 
@@ -778,5 +805,8 @@ def edit_patient(user_id):
 if __name__ == '__main__':
     # Initialize the database and admin on the first run
     with app.app_context():
-        init_db_command()
+        # This will create tables and the initial admin if they don't exist
+        init_db_command() 
+    
+    # Start the Flask development server
     app.run(debug=True)
