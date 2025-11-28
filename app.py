@@ -224,8 +224,19 @@ def add_doctor():
         name = request.form.get('name')
         username = request.form.get('username')
         password = request.form.get('password')
-        specialization_id = request.form.get('specialization_id')
+        # Ensure specialization_id is an integer for database insertion
+        try:
+            specialization_id = int(request.form.get('specialization_id'))
+        except (ValueError, TypeError):
+            flash('Invalid specialization selected.', 'danger')
+            return redirect(url_for('add_doctor'))
+            
         contact_info = request.form.get('contact_info')
+
+        # --- Backend Validation (Improvement for project report) ---
+        if not all([name, username, password, specialization_id]):
+            flash('All required fields must be filled.', 'danger')
+            return redirect(url_for('add_doctor'))
 
         if User.query.filter_by(username=username).first():
             flash('Username already exists.', 'danger')
@@ -234,6 +245,7 @@ def add_doctor():
         hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
         
         try:
+            # 1. Create the User entry (required for login)
             new_user = User(
                 username=username,
                 password_hash=hashed_password,
@@ -242,8 +254,16 @@ def add_doctor():
                 contact_info=contact_info
             )
             db.session.add(new_user)
-            db.session.flush()
+            db.session.flush() # Flushes the session to get the auto-generated new_user.id
             
+            # 2. Create the Doctor entry (required for specialization and doctor-specific queries)
+            new_doctor = Doctor(
+                user_id=new_user.id,
+                specialization_id=specialization_id
+            )
+            db.session.add(new_doctor)
+            
+            # 3. Commit both new records
             db.session.commit()
             flash(f'Doctor {name} added successfully.', 'success')
             return redirect(url_for('admin_dashboard'))
